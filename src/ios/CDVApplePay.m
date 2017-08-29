@@ -43,21 +43,21 @@
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         return;
     }
-    NSString * StripePublishableKey = [[command.arguments objectAtIndex:0] objectAtIndex:4];
+    NSString * StripePublishableKey = [[command.arguments objectAtIndex:0] objectAtIndex:0];
     [[STPPaymentConfiguration sharedConfiguration] setPublishableKey:StripePublishableKey];
 
     PKPaymentRequest *paymentRequest = [Stripe
                                  paymentRequestWithMerchantIdentifier:merchantId
-                                 country:[[command.arguments objectAtIndex:0] objectAtIndex:3]
-                                 currency:[[command.arguments objectAtIndex:0] objectAtIndex:2]];
+                                 country:[[command.arguments objectAtIndex:0] objectAtIndex:4]
+                                 currency:[[command.arguments objectAtIndex:0] objectAtIndex:3]];
 
     // Configure your request here.
     //[request setRequiredShippingAddressFields:PKAddressFieldPostalAddress];
     //[request setRequiredBillingAddressFields:PKAddressFieldPostalAddress];
     //request.shippingMethods = [self.shippingManager defaultShippingMethods];
     paymentRequest.paymentSummaryItems = @[
-                                    [PKPaymentSummaryItem summaryItemWithLabel:[[command.arguments objectAtIndex:0] objectAtIndex:1]
-                                                                        amount:[NSDecimalNumber decimalNumberWithString:[[command.arguments objectAtIndex:0] objectAtIndex:0]]]
+                                    [PKPaymentSummaryItem summaryItemWithLabel:[[command.arguments objectAtIndex:0] objectAtIndex:2]
+                                                                        amount:[NSDecimalNumber decimalNumberWithString:[[command.arguments objectAtIndex:0] objectAtIndex:1]]]
                                     ];
 
     callbackId = command.callbackId;
