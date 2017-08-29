@@ -1,7 +1,7 @@
 #import "CDVApplePay.h"
-#import <Stripe/Stripe.h>
-#import <Stripe/STPAPIClient.h>
-#import <Stripe/STPCardBrand.h>
+#import "Stripe.framework/Headers/Stripe.h"
+#import "Stripe.framework/Headers/STPAPIClient.h"
+#import "Stripe.framework/Headers/STPCardBrand.h"
 #import <PassKit/PassKit.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
@@ -11,22 +11,18 @@
 
 - (CDVPlugin*)initWithWebView:(UIWebView*)theWebView
 {
-    NSString * StripePublishableKey = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"StripePublishableKey"];
-    merchantId = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"ApplePayMerchant"];
-    [Stripe setDefaultPublishableKey:StripePublishableKey];
-    self = (CDVApplePay*)[super initWithWebView:(UIWebView*)theWebView];
-    
+    self = (CDVApplePay*)[super init];
     return self;
 }
 
 - (void)dealloc
 {
-    
+
 }
 
 - (void)onReset
 {
-    
+
 }
 
 - (void)setMerchantId:(CDVInvokedUrlCommand*)command
@@ -35,71 +31,55 @@
     NSLog(@"ApplePay set merchant id to %@", merchantId);
 }
 
-- (void)getAllowsApplePay:(CDVInvokedUrlCommand*)command
-{
-    if (merchantId == nil) {
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Please call setMerchantId() with your Apple-given merchant ID."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        return;
-    }
-    
-    PKPaymentRequest *request = [Stripe
-                                 paymentRequestWithMerchantIdentifier:merchantId];
-    
-    // Configure a dummy request
-    NSString *label = @"Premium Llama Food";
-    NSDecimalNumber *amount = [NSDecimalNumber decimalNumberWithString:@"10.00"];
-    request.paymentSummaryItems = @[
-                                    [PKPaymentSummaryItem summaryItemWithLabel:label
-                                                                        amount:amount]
-                                    ];
-    
-    if ([Stripe canSubmitPaymentRequest:request]) {
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: @"user has apple pay"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"user does not have apple pay"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
-}
-
 - (void)getStripeToken:(CDVInvokedUrlCommand*)command
 {
-    
     if (merchantId == nil) {
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Please call setMerchantId() with your Apple-given merchant ID."];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         return;
     }
-    
-    PKPaymentRequest *request = [Stripe
-                                 paymentRequestWithMerchantIdentifier:merchantId];
-    
+    if (([command.arguments count]<3) || [[command.arguments objectAtIndex:0] count]<5) {
+        CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Please set StripePublishableKey, Amount, Product name, Currency, Country as getStripeToken function arguments array"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        return;
+    }
+    NSString * StripePublishableKey = [[command.arguments objectAtIndex:0] objectAtIndex:4];
+    [[STPPaymentConfiguration sharedConfiguration] setPublishableKey:StripePublishableKey];
+
+    PKPaymentRequest *paymentRequest = [Stripe
+                                 paymentRequestWithMerchantIdentifier:merchantId
+                                 country:[[command.arguments objectAtIndex:0] objectAtIndex:3]
+                                 currency:[[command.arguments objectAtIndex:0] objectAtIndex:2]];
+
     // Configure your request here.
-    NSString *label = [command.arguments objectAtIndex:1];
-    NSDecimalNumber *amount = [NSDecimalNumber decimalNumberWithString:[command.arguments objectAtIndex:0]];
-    request.paymentSummaryItems = @[
-                                    [PKPaymentSummaryItem summaryItemWithLabel:label
-                                                                        amount:amount]
+    //[request setRequiredShippingAddressFields:PKAddressFieldPostalAddress];
+    //[request setRequiredBillingAddressFields:PKAddressFieldPostalAddress];
+    //request.shippingMethods = [self.shippingManager defaultShippingMethods];
+    paymentRequest.paymentSummaryItems = @[
+                                    [PKPaymentSummaryItem summaryItemWithLabel:[[command.arguments objectAtIndex:0] objectAtIndex:1]
+                                                                        amount:[NSDecimalNumber decimalNumberWithString:[[command.arguments objectAtIndex:0] objectAtIndex:0]]]
                                     ];
-    
-    NSString *cur = [command.arguments objectAtIndex:2];
-    request.currencyCode = cur;
-    
+
     callbackId = command.callbackId;
-    
-    if ([Stripe canSubmitPaymentRequest:request]) {
-        PKPaymentAuthorizationViewController *paymentController;
-        paymentController = [[PKPaymentAuthorizationViewController alloc]
-                             initWithPaymentRequest:request];
-        paymentController.delegate = self;
-        [self.viewController presentViewController:paymentController animated:YES completion:nil];
+
+    if ([Stripe canSubmitPaymentRequest:paymentRequest]) {
+        PKPaymentAuthorizationViewController *auth = [[PKPaymentAuthorizationViewController alloc]
+                             initWithPaymentRequest:paymentRequest];
+        auth.delegate = self;
+        if (auth) {
+            [self.viewController presentViewController:auth animated:YES completion:nil];
+        } else {
+            NSLog(@"Apple Pay returned a nil PKPaymentAuthorizationViewController - make sure you've configured Apple Pay correctly, as outlined at https://stripe.com/docs/mobile/apple-pay");
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"Apple Pay returned a nil PKPaymentAuthorizationViewController - make sure you've configured Apple Pay correctly, as outlined at https://stripe.com/docs/mobile/apple-pay"];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            return;
+        }
     } else {
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"You dont have access to ApplePay"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         return;
     }
-    
+
 }
 
 - (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller
@@ -109,17 +89,17 @@
 }
 
 - (void)handlePaymentAuthorizationWithPayment:(PKPayment *)payment completion:(void (^)(PKPaymentAuthorizationStatus))completion {
-    
+
     [[STPAPIClient sharedClient] createTokenWithPayment:payment completion:^(STPToken *token, NSError *error) {
         if (error) {
             completion(PKPaymentAuthorizationStatusFailure);
-            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"couldn't get a stripe token from STPAPIClient"];
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: ([error localizedDescription])];
             [self.commandDelegate sendPluginResult:result callbackId:callbackId];
             return;
         } else {
 
             NSString* brand;
-            
+
             switch (token.card.brand) {
                 case STPCardBrandVisa:
                     brand = @"Visa";
@@ -143,33 +123,33 @@
                     brand = @"Unknown";
                     break;
             }
-            
+
             NSDictionary* card = @{
                @"id": token.card.cardId,
                @"brand": brand,
                @"last4": [NSString stringWithFormat:@"%@", token.card.last4],
-               @"exp_month": [NSString stringWithFormat:@"%lu", token.card.expMonth],
-               @"exp_year": [NSString stringWithFormat:@"%lu", token.card.expYear]
+               //@"exp_month": [NSString stringWithFormat:@"%lu", token.card.expMonth],
+               //@"exp_year": [NSString stringWithFormat:@"%lu", token.card.expYear]
            };
-            
+
             NSDictionary* message = @{
                @"id": token.tokenId,
                @"card": card
             };
-            
+
             completion(PKPaymentAuthorizationStatusSuccess);
             CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary: message];
             [self.commandDelegate sendPluginResult:result callbackId:callbackId];
         }
-        
+
     }];
 }
- 
- 
+
+
  - (void)paymentAuthorizationViewControllerDidFinish:(PKPaymentAuthorizationViewController *)controller {
      CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"user cancelled apple pay"];
      [self.commandDelegate sendPluginResult:result callbackId:callbackId];
      [self.viewController dismissViewControllerAnimated:YES completion:nil];
  }
- 
+
 @end

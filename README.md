@@ -9,9 +9,7 @@ This plugin is a basic implementation of Stripe and Apple Pay with the purpose o
 2. In your Xcode project, go to **Capabilities** and enable **Apple Pay**
 3. Install the plugin
 ```sh
-cordova plugin add https://github.com/arzynik/cordova-plugin-applepay  \
-	--variable STRIPE_PUBLISHABLE_KEY="pk_test_stripekey" \
-	--variable APPLE_PAY_MERCHANT="merchant.apple.test"
+cordova plugin add https://github.com/dr1v3/cordova-plugin-applepay/
 ```
 
 ## Supported Platforms
@@ -20,17 +18,8 @@ cordova plugin add https://github.com/arzynik/cordova-plugin-applepay  \
 
 ## Methods
 
-- ApplePay.getAllowsApplePay
 - ApplePay.setMerchantId
 - ApplePay.getStripeToken
-
-#### ApplePay.getAllowsApplePay
-
-Returns successfully if the device is setup for Apple Pay (correct software version, correct hardware & has card added).
-
-```js
-ApplePay.getAllowsApplePay(successCallback, errorCallback);
-```
 
 #### ApplePay.setMerchantId
 
@@ -42,13 +31,14 @@ ApplePay.setMerchantId(successCallback, errorCallback, 'merchant.apple.test');
 
 #### ApplePay.getStripeToken
 
-Request a stripe token for an Apple Pay card. 
+Request a stripe token for an Apple Pay card.
 - amount (string)
 - description (string)
 - currency (uppercase string)
+- country (uppercase string)
 
 ```js
-ApplePay.getStripeToken(successCallback, errorCallback, amount, description, currency);
+ApplePay.getStripeToken(successCallback, errorCallback, [stripePublishableKey, amount, description, currency, country]);
 ```
 
 ##### Response
@@ -68,18 +58,16 @@ ApplePay.getStripeToken(successCallback, errorCallback, amount, description, cur
 ## Example
 
 ```js
-ApplePay.setMerchantId('merchant.apple.test');
+ApplePay.setMerchantId(_ => {
+  console.log(_);
+}, err => {
+  alert(err);
+}, 'merchant.apple.test');
 
-ApplePay.getAllowsApplePay(function() {
-
-	ApplePay.getStripeToken(function(token) {
-		alert('Your token is: ' + token.id);
-	}, function() {
-		alert('Error getting payment info');
-	}, '10.00', 'Delicious Cake', 'USD');
-
-}, function() {
-	alert('User does not have apple pay available');
-});
+ApplePay.getStripeToken(function (token) {
+  alert('Stripe token ID is: ' + token.id);
+}, function (err) {
+  alert(err);
+}, ['pk_test34857kqhsbzg84443', '5.00', 'Sample Product', 'USD', 'US']);
 
 ```
