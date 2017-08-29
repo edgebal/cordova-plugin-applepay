@@ -7,7 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
-
+#import "STPAPIResponseDecodable.h"
+#import "STPSourceProtocol.h"
 
 @class STPCard;
 @class STPBankAccount;
@@ -15,16 +16,16 @@
 /**
  *  A token returned from submitting payment details to the Stripe API. You should not have to instantiate one of these directly.
  */
-@interface STPToken : NSObject
+@interface STPToken : NSObject<STPAPIResponseDecodable, STPSourceProtocol>
 
 /**
- *  You cannot directly instantiate an STPToken. You should only use one that has been returned from an STPAPIClient callback.
+ *  You cannot directly instantiate an `STPToken`. You should only use one that has been returned from an `STPAPIClient` callback.
  */
 - (nonnull instancetype) init __attribute__((unavailable("You cannot directly instantiate an STPToken. You should only use one that has been returned from an STPAPIClient callback.")));
 
 /**
- *  The value of the token. You can store this value on your server and use it to make charges and customers. @see
- * https://stripe.com/docs/mobile/ios#sending-tokens
+ *  The value of the token. You can store this value on your server and use it to make charges and customers. 
+ *  @see https://stripe.com/docs/charges
  */
 @property (nonatomic, readonly, nonnull) NSString *tokenId;
 
@@ -48,25 +49,5 @@
  *  When the token was created.
  */
 @property (nonatomic, readonly, nullable) NSDate *created;
-
-typedef void (^STPCardServerResponseCallback)(NSURLResponse * __nullable response, NSData * __nullable data, NSError * __nullable error);
-
-/**
- *  Form-encode the token and post those parameters to your backend URL.
- *
- *  @param url     the URL to upload the token details to
- *  @param params  optional parameters to additionally include in the POST body
- *  @param handler code to execute with your server's response
- *  @deprecated    you should write your own networking code to talk to your server.
- */
-- (void)postToURL:(nonnull NSURL *)url withParams:(nullable NSDictionary *)params completion:(nullable STPCardServerResponseCallback)handler __attribute((deprecated));
-
-@end
-
-// This method is used internally by Stripe to deserialize API responses and exposed here for convenience and testing purposes only. You should not use it in
-// your own code.
-@interface STPToken (PrivateMethods)
-
-- (nonnull instancetype)initWithAttributeDictionary:(nonnull NSDictionary *)attributeDictionary;
 
 @end

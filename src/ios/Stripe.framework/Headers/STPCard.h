@@ -7,7 +7,14 @@
 //
 
 #import <Foundation/Foundation.h>
+
+#import "STPAPIResponseDecodable.h"
 #import "STPCardBrand.h"
+#import "STPCardParams.h"
+#import "STPPaymentMethod.h"
+#import "STPSourceProtocol.h"
+
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  *  The various funding sources for a payment card.
@@ -20,20 +27,60 @@ typedef NS_ENUM(NSInteger, STPCardFundingType) {
 };
 
 /**
- *  Representation of a user's credit card details. You can assemble these with information that your user enters and
- *  then create Stripe tokens with them using an STPAPIClient. @see https://stripe.com/docs/api#cards
+ *  Representation of a user's credit card details that have been tokenized with the Stripe API. @see https://stripe.com/docs/api#cards
  */
-@interface STPCard : NSObject
+@interface STPCard : STPCardParams<STPAPIResponseDecodable, STPPaymentMethod, STPSourceProtocol>
 
 /**
- *  The card's number. This will be nil for cards retrieved from the Stripe API.
+ *  Create an STPCard from a Stripe API response.
+ *
+ *  @param cardID   The Stripe ID of the card, e.g. `card_185iQx4JYtv6MPZKfcuXwkOx`
+ *  @param brand    The brand of the card (e.g. "Visa". To obtain this enum value from a string, use `[STPCardBrand brandFromString:string]`;
+ *  @param last4    The last 4 digits of the card, e.g. 4242
+ *  @param expMonth The card's expiration month, 1-indexed (i.e. 1 = January)
+ *  @param expYear  The card's expiration year
+ *  @param funding  The card's funding type (credit, debit, or prepaid). To obtain this enum value from a string, use `[STPCardBrand fundingFromString:string]`.
+ *
+ *  @return an STPCard instance populated with the provided values.
  */
-@property (nonatomic, copy, nullable) NSString *number;
+- (instancetype)initWithID:(NSString *)cardID
+                     brand:(STPCardBrand)brand
+                     last4:(NSString *)last4
+                  expMonth:(NSUInteger)expMonth
+                   expYear:(NSUInteger)expYear
+                   funding:(STPCardFundingType)funding;
 
 /**
- *  The last 4 digits of the card. Unlike number, this will be present on cards retrieved from the Stripe API.
+ *  This parses a string representing a card's brand into the appropriate STPCardBrand enum value, i.e. `[STPCard brandFromString:@"American Express"] == STPCardBrandAmex`
+ *
+ *  @param string a string representing the card's brand as returned from the Stripe API
+ *
+ *  @return an enum value mapped to that string. If the string is unrecognized, returns STPCardBrandUnknown.
  */
-@property (nonatomic, readonly, nullable) NSString *last4;
++ (STPCardBrand)brandFromString:(NSString *)string;
+
+/**
+ *  Returns a string representation for the provided card brand; i.e. `[NSString stringFromBrand:STPCardBrandVisa] ==  @"Visa"`.
+ *
+ *  @param brand the brand you want to convert to a string
+ *
+ *  @return A string representing the brand, suitable for displaying to a user.
+ */
++ (NSString *)stringFromBrand:(STPCardBrand)brand;
+
+/**
+ *  This parses a string representing a card's funding type into the appropriate `STPCardFundingType` enum value, i.e. `[STPCard fundingFromString:@"prepaid"] == STPCardFundingTypePrepaid`.
+ *
+ *  @param string a string representing the card's funding type as returned from the Stripe API
+ *
+ *  @return an enum value mapped to that string. If the string is unrecognized, returns `STPCardFundingTypeOther`.
+ */
++ (STPCardFundingType)fundingFromString:(NSString *)string;
+
+/**
+ *  The last 4 digits of the card.
+ */
+@property (nonatomic, readonly) NSString *last4;
 
 /**
  *  For cards made with Apple Pay, this refers to the last 4 digits of the "Device Account Number" for the tokenized card. For regular cards, it will be nil.
@@ -41,7 +88,12 @@ typedef NS_ENUM(NSInteger, STPCardFundingType) {
 @property (nonatomic, readonly, nullable) NSString *dynamicLast4;
 
 /**
- *  The card's expiration month.
+ *  Whether or not the card originated from Apple Pay.
+ */
+@property (nonatomic, readonly) BOOL isApplePayCard;
+
+/**
+ *  The card's expiration month. 1-indexed (i.e. 1 == January)
  */
 @property (nonatomic) NSUInteger expMonth;
 
@@ -51,14 +103,14 @@ typedef NS_ENUM(NSInteger, STPCardFundingType) {
 @property (nonatomic) NSUInteger expYear;
 
 /**
- *  The card's security code, found on the back. This will be nil for cards retrieved from the Stripe API.
- */
-@property (nonatomic, copy, nullable) NSString *cvc;
-
-/**
  *  The cardholder's name.
  */
 @property (nonatomic, copy, nullable) NSString *name;
+
+/**
+ *  The cardholder's address.
+ */
+@property(nonatomic, copy, nullable) STPAddress *address;
 
 /**
  *  The cardholder's address.
@@ -81,22 +133,9 @@ typedef NS_ENUM(NSInteger, STPCardFundingType) {
 @property (nonatomic, readonly) STPCardBrand brand;
 
 /**
- *  The issuer of the card.
- *  Can be one of "Visa", "American Express", "MasterCard", "Discover", "JCB", "Diners Club", or "Unknown"
- *  @deprecated use "brand" instead.
- */
-@property (nonatomic, readonly, nonnull) NSString *type __attribute__((deprecated));
-
-/**
  *  The funding source for the card (credit, debit, prepaid, or other)
  */
 @property (nonatomic, readonly) STPCardFundingType funding;
-
-/**
- *  A proxy for the card's number, this uniquely identifies the credit card and can be used to compare different cards.
- *  @deprecated This field will no longer be present in responses when using your publishable key. If you want to access the value of this field, you can look it up on your backend using your secret key.
- */
-@property (nonatomic, readonly, nullable) NSString *fingerprint __attribute__((deprecated("This field will no longer be present in responses when using your publishable key. If you want to access the value of this field, you can look it up on your backend using your secret key.")));
 
 /**
  *  Two-letter ISO code representing the issuing country of the card.
@@ -108,38 +147,6 @@ typedef NS_ENUM(NSInteger, STPCardFundingType) {
  */
 @property (nonatomic, copy, nullable) NSString *currency;
 
-/**
- *  Validate each field of the card.
- *  @return whether or not that field is valid.
- *  @deprecated use STPCardValidator instead.
- */
-- (BOOL)validateNumber:(__nullable id * __nullable )ioValue
-                 error:(NSError * __nullable * __nullable )outError __attribute__((deprecated("Use STPCardValidator instead.")));
-- (BOOL)validateCvc:(__nullable id * __nullable )ioValue
-              error:(NSError * __nullable * __nullable )outError __attribute__((deprecated("Use STPCardValidator instead.")));
-- (BOOL)validateExpMonth:(__nullable  id * __nullable )ioValue
-                   error:(NSError * __nullable * __nullable )outError __attribute__((deprecated("Use STPCardValidator instead.")));
-- (BOOL)validateExpYear:(__nullable id * __nullable)ioValue
-                  error:(NSError * __nullable * __nullable )outError __attribute__((deprecated("Use STPCardValidator instead.")));
-
-/**
- *  This validates a fully populated card to check for all errors, including ones that come about
- *  from the interaction of more than one property. It will also do all the validations on individual
- *  properties, so if you only want to call one method on your card to validate it after setting all the
- *  properties, call this one
- *
- *  @param outError a pointer to an NSError that, after calling this method, will be populated with an error if the card is not valid. See StripeError.h for
- possible values
- *
- *  @return whether or not the card is valid.
- *  @deprecated use STPCardValidator instead.
- */
-- (BOOL)validateCardReturningError:(NSError * __nullable * __nullable)outError __attribute__((deprecated("Use STPCardValidator instead.")));
-
 @end
 
-// This method is used internally by Stripe to deserialize API responses and exposed here for convenience and testing purposes only. You should not use it in
-// your own code.
-@interface STPCard (PrivateMethods)
-- (nonnull instancetype)initWithAttributeDictionary:(nonnull NSDictionary *)attributeDictionary;
-@end
+NS_ASSUME_NONNULL_END
