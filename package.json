@@ -3,12 +3,12 @@
   "version": "0.0.1",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:dr1v3/cordova-plugin-applepay.git"
+    "url": "git+ssh://git@github.com:edgebal/cordova-plugin-applepay.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/dr1v3/cordova-plugin-applepay/issues"
+    "url": "https://github.com/edgebal/cordova-plugin-applepay/issues"
   },
-  "homepage": "https://github.com/dr1v3/cordova-plugin-applepay/"
+  "homepage": "https://github.com/edgebal/cordova-plugin-applepay/"
 }
