@@ -8,7 +8,7 @@ xmlns:android="http://schemas.android.com/apk/res/android"
     <name>ApplePay</name>
     <description>Implements Stripe/ApplePay Stuff.</description>
     <keywords>cordova,payment,apple,pay,stripe</keywords>
-    <repo>git://git@github.com:dr1v3/cordova-plugin-applepay.git</repo>
+    <repo>git://git@github.com:edgebal/cordova-plugin-applepay.git</repo>
 
 
 
